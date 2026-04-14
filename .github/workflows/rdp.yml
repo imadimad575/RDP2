@@ -7,12 +7,14 @@ jobs:
   build:
     runs-on: windows-latest
     steps:
-    - name: Download ngrok
+    - name: Download and Extract ngrok
       run: |
+        # تحميل النسخة المستقرة من ngrok
         Invoke-WebRequest https://bin.equinox.io/c/b342P87mUKP/ngrok-v3-stable-windows-amd64.zip -OutFile ngrok.zip
-        Expand-Archive ngrok.zip
+        # فك الضغط في مجلد محدد
+        Expand-Archive -Path ngrok.zip -DestinationPath .\ngrok_files -Force
     - name: Authenticate ngrok
-      run: .\ngrok\ngrok.exe authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
+      run: .\ngrok_files\ngrok.exe authtoken ${{ secrets.NGROK_AUTH_TOKEN }}
     - name: Enable RDP
       run: |
         Set-ItemProperty -Path 'HKLM:\System\CurrentControlSet\Control\Terminal Server' -name "fDenyTSConnections" -Value 0
@@ -26,17 +28,20 @@ jobs:
         Add-LocalGroupMember -Group "Administrators" -Member "GamingUser"
     - name: Optimize for Gaming (Registry Tweaks)
       run: |
-        # Set RDP to 60 FPS
+        # تحسين سرعة الإطارات إلى 60 FPS
         if (!(Test-Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp")) { New-Item -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Force }
         New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Control\Terminal Server\WinStations\RDP-Tcp" -Name "DWMFRAMEINTERVAL" -PropertyType DWord -Value 15 -Force
-        # Enable Hardware Acceleration
+        # تفعيل تسريع الأجهزة
         New-ItemProperty -Path "HKLM:\SOFTWARE\Policies\Microsoft\Windows NT\Terminal Services" -Name "bEnumerateHWBeforeSW" -PropertyType DWord -Value 1 -Force
-        # Reduce Latency
+        # تقليل زمن الاستجابة (Latency)
         New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TcpAckFrequency" -PropertyType DWord -Value 1 -Force
         New-ItemProperty -Path "HKLM:\SYSTEM\CurrentControlSet\Services\Tcpip\Parameters" -Name "TCPNoDelay" -PropertyType DWord -Value 1 -Force
     - name: Start ngrok Tunnel
-      run: Start-Process .\ngrok\ngrok.exe -ArgumentList "tcp 3389"
+      run: |
+        # تشغيل النفق في الخلفية
+        Start-Process .\ngrok_files\ngrok.exe -ArgumentList "tcp 3389"
     - name: Keep Alive
       run: |
-        Write-Host "RDP is ready! Connect using the ngrok URL."
+        Write-Host "RDP is ready! Connect using the ngrok URL from your ngrok dashboard or logs."
+        # إبقاء الجلسة تعمل لمدة 6 ساعات
         while($true) { Start-Sleep -Seconds 3600 }
